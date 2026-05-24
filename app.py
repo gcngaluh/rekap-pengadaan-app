@@ -104,6 +104,11 @@ def get_data():
         for col in ['bruto', 'dpp', 'ppn', 'pph', 'netto']:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
             
+        # --- TAMBAHAN FIX UNTUK ERROR TYPE ---
+        for col in ['nama_pengadaan', 'jenis_pajak', 'keterangan']:
+            df[col] = df[col].astype(str).replace('nan', '')
+        # -------------------------------------
+            
         return df
     except Exception as e:
         return pd.DataFrame(columns=COLS)
