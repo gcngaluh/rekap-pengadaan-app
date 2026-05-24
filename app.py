@@ -31,16 +31,31 @@ st.markdown("""
     .stApp { background-color: #f8fafc; }
     .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 96%; }
     
-    /* SOLUSI HOVERING TEXT TERPOTONG: Memaksa kontainer kolom agar tidak memotong objek di dalamnya */
-    div[data-testid="column"] { 
+    /* --------------------------------------------------------------------- */
+    /* SOLUSI HOVERING TEXT TERPOTONG (AGRESIF KE SEMUA PARENT CONTAINER)    */
+    /* --------------------------------------------------------------------- */
+    div[data-testid="stHorizontalBlock"],
+    div[data-testid="stVerticalBlock"],
+    div[data-testid="stVerticalBlockBorderWrapper"],
+    div[data-testid="column"],
+    div[data-testid="stBlock"] { 
         padding-bottom: 0px !important; 
         overflow: visible !important; 
     }
     
+    /* Target ke komponen portal tooltip (BaseWeb) yang digunakan Streamlit */
+    div[data-baseweb="tooltip"],
+    div[data-baseweb="popover"],
+    div[data-baseweb="popper"] {
+        z-index: 9999999 !important;
+        overflow: visible !important;
+    }
+
     /* Format Kotak Teks Melayang (Tooltip Hover) agar Luas, Rapi, dan Elegan */
     div[data-testid="stTooltipContent"] { 
         width: max-content !important; 
-        max-width: 320px !important; 
+        min-width: 80px !important;
+        max-width: 300px !important;
         white-space: normal !important; 
         word-wrap: break-word !important;
         overflow: visible !important;
@@ -48,9 +63,12 @@ st.markdown("""
         color: #f8fafc !important;
         border-radius: 6px !important;
         padding: 6px 12px !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-        z-index: 999999 !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        z-index: 9999999 !important;
+        text-align: center !important;
+        font-size: 0.85rem !important;
     }
+    /* --------------------------------------------------------------------- */
     
     /* Styling Card/Wadah Kontainer Kontrol */
     div[data-testid="stVerticalBlockBorderWrapper"] {
