@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 import re
 from streamlit_gsheets import GSheetsConnection
 
@@ -81,20 +81,36 @@ st.markdown("""
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 SHEET_NAME = "Sheet1"
-COLS = ["id", "tahun_anggaran", "tanggal", "nama_pengadaan", "jenis_pajak", "punya_npwp", "bruto", "dpp", "ppn", "pph", "netto", "keterangan"]
+
+# Menambahkan 5 Kolom Baru ke dalam Struktur Database
+COLS = [
+    "id", "tahun_anggaran", "tanggal", "nama_pengadaan", "jenis_pajak", "punya_npwp", 
+    "bruto", "dpp", "ppn", "pph", "netto", "keterangan",
+    "no_kontrak", "tgl_kontrak", "no_bast", "tgl_bast", "tgl_kuitansi"
+]
 
 def get_data():
-    """Mengambil data dari Google Sheets dengan sinkronisasi tipe data murni seperti app.py"""
+    """Mengambil data dari Google Sheets dengan sinkronisasi tipe data murni"""
     try:
-        df = conn.read(worksheet=SHEET_NAME, usecols=list(range(len(COLS))), ttl=0)
+        # Membaca seluruh sheet tanpa batasan usecols kaku, agar kolom baru otomatis terbaca jika sheet diupdate
+        df = conn.read(worksheet=SHEET_NAME, ttl=0)
         df = df.dropna(how="all")
+        
         if df.empty or len(df.columns) == 0:
             return pd.DataFrame(columns=COLS)
+            
+        # Memastikan semua kolom standar tersedia di dataframe
+        for col in COLS:
+            if col not in df.columns:
+                df[col] = ""
+                
+        # Urutkan dan filter sesuai COLS
+        df = df[COLS]
         
         df['id'] = pd.to_numeric(df['id'], errors='coerce').fillna(0).astype(int)
         df['tahun_anggaran'] = pd.to_numeric(df['tahun_anggaran'], errors='coerce').fillna(2026).astype(int)
         
-        # PENYESUAIAN MUTLAK: Memetakan tipe data agar dibaca Boolean asli seperti SQLite di app.py
+        # Penyesuaian Boolean
         df['punya_npwp'] = df['punya_npwp'].map({
             True: True, False: False, 'TRUE': True, 'FALSE': False,
             'True': True, 'False': False, '1': True, '0': False,
@@ -104,10 +120,10 @@ def get_data():
         for col in ['bruto', 'dpp', 'ppn', 'pph', 'netto']:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
             
-        # --- TAMBAHAN FIX UNTUK ERROR TYPE ---
-        for col in ['nama_pengadaan', 'jenis_pajak', 'keterangan']:
-            df[col] = df[col].astype(str).replace('nan', '')
-        # -------------------------------------
+        # FIX ERROR TYPE DATA KOSONG
+        kolom_teks = ['nama_pengadaan', 'jenis_pajak', 'keterangan', 'no_kontrak', 'tgl_kontrak', 'no_bast', 'tgl_bast', 'tgl_kuitansi']
+        for col in kolom_teks:
+            df[col] = df[col].astype(str).replace('nan', '').replace('None', '')
             
         return df
     except Exception as e:
@@ -118,8 +134,17 @@ def save_data(df):
     conn.update(worksheet=SHEET_NAME, data=df)
     st.cache_data.clear()
 
+def parse_date(date_str):
+    """Helper untuk parsing string tanggal ke objek date"""
+    try:
+        if pd.isna(date_str) or not date_str or str(date_str).strip() == "":
+            return None
+        return datetime.strptime(str(date_str).strip()[:10], "%Y-%m-%d").date()
+    except:
+        return None
+
 # ==========================================
-# 4. ENGINE PERHITUNGAN PAJAK (DARI app.py)
+# 4. ENGINE PERHITUNGAN PAJAK
 # ==========================================
 def parse_number(val):
     if isinstance(val, (int, float)): return int(val)
@@ -145,7 +170,6 @@ def pph_rate_is_npwp(pajak_str, punya_npwp):
     return punya_npwp
 
 def hitung_pajak(bruto, kategori_pajak, punya_npwp, manual_rate=0.0):
-    """Logika Perhitungan Pajak Berdasarkan Standar app.py"""
     ppn_rate = 0.11
     batas_pemungutan = 2000000
     kat_engine = "Lainnya"
@@ -252,8 +276,9 @@ def main_dashboard():
 
     st.divider()
 
-    # --- INPUT FORM DATA BARU (DESAIN app.py) ---
+    # --- INPUT FORM DATA BARU ---
     st.subheader("📝 Tambah Data Pengadaan Baru")
+    
     col1, col2 = st.columns(2)
     counter = st.session_state.form_reset_counter
     
@@ -262,7 +287,6 @@ def main_dashboard():
         key_bruto = f"form_bruto_{counter}"
         if key_bruto not in st.session_state: st.session_state[key_bruto] = "0"
         input_bruto = st.text_input("Nilai Pengadaan (Bruto)", key=key_bruto, on_change=format_angka_ribuan, args=(key_bruto,))
-        # Mengembalikan Desain Checkbox Murni app.py
         punya_npwp = st.checkbox("Punya NPWP", value=True, key=f"form_npwp_{counter}")
     
     with col2:
@@ -270,6 +294,18 @@ def main_dashboard():
         manual_rate = st.number_input("Masukkan Persentase PPh (%)", min_value=0.0, step=0.1, value=2.0, key=f"form_manual_{counter}") if jenis_pajak == "Input Manual / Lainnya" else 0.0
         keterangan = st.text_input("Keterangan Tambahan (Opsional)", key=f"form_ket_{counter}")
         
+    # --- INPUT TAMBAHAN (KONTRAK & BAST) ---
+    with st.expander("📄 Detail Dokumen Tambahan (Kontrak, BAST, & Nota)"):
+        c_dok1, c_dok2, c_dok3 = st.columns([1, 1, 1])
+        with c_dok1:
+            no_kontrak = st.text_input("Nomor Kontrak (Opsional)", key=f"form_nokontrak_{counter}")
+            tgl_kontrak = st.date_input("Tanggal Kontrak (Opsional)", value=None, key=f"form_tglkontrak_{counter}")
+        with c_dok2:
+            no_bast = st.text_input("Nomor BAST (Opsional)", key=f"form_nobast_{counter}")
+            tgl_bast = st.date_input("Tanggal BAST (Opsional)", value=None, key=f"form_tglbast_{counter}")
+        with c_dok3:
+            tgl_kuitansi = st.date_input("Tanggal Kuitansi / Nota", value=datetime.now().date(), key=f"form_tglkuitansi_{counter}")
+
     if st.button("Hitung & Simpan ke Database", use_container_width=True, type="primary"):
         nilai_bruto = parse_number(input_bruto)
         if not nama_pengadaan: 
@@ -286,7 +322,10 @@ def main_dashboard():
             data_baru = pd.DataFrame([{
                 "id": new_id, "tahun_anggaran": st.session_state.tahun_anggaran, "tanggal": waktu_sekarang,
                 "nama_pengadaan": nama_pengadaan, "jenis_pajak": pajak_tersimpan, "punya_npwp": bool(punya_npwp),
-                "bruto": nilai_bruto, "dpp": dpp, "ppn": ppn, "pph": pph, "netto": netto, "keterangan": keterangan
+                "bruto": nilai_bruto, "dpp": dpp, "ppn": ppn, "pph": pph, "netto": netto, "keterangan": keterangan,
+                "no_kontrak": no_kontrak, "tgl_kontrak": str(tgl_kontrak) if tgl_kontrak else "",
+                "no_bast": no_bast, "tgl_bast": str(tgl_bast) if tgl_bast else "",
+                "tgl_kuitansi": str(tgl_kuitansi) if tgl_kuitansi else ""
             }])
             
             df_update = pd.concat([df_utama, data_baru], ignore_index=True)
@@ -313,11 +352,11 @@ def main_dashboard():
 
     st.divider()
 
-    # --- VIEW & INLINE EDIT TABLE (DESAIN SAMA DENGAN app.py) ---
+    # --- VIEW & INLINE EDIT TABLE ---
     st.subheader("📑 Tabel Rekapitulasi & Edit Data")
     if not df_filter.empty:
         h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12 = st.columns([0.5, 1.1, 1.5, 1.6, 0.7, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.6])
-        header_labels = ["ID", "Tanggal", "Nama", "Pajak", "NPWP", "Bruto", "DPP", "PPN", "PPh", "Netto", "Ket", "Aksi"]
+        header_labels = ["ID", "Tgl Kuitansi", "Nama", "Pajak", "NPWP", "Bruto", "DPP", "PPN", "PPh", "Netto", "Ket", "Aksi"]
         for col, label in zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12], header_labels):
             col.markdown(f"**{label}**")
         st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 2px solid #ccc;'>", unsafe_allow_html=True)
@@ -332,7 +371,7 @@ def main_dashboard():
                         edit_nama = e_col1.text_input("Nama Pengadaan", value=str(row['nama_pengadaan']))
                         edit_bruto_str = e_col2.text_input("Nilai Bruto", value=f"{int(row['bruto']):,}")
                         edit_npwp = e_col3.checkbox("Punya NPWP", value=bool(row['punya_npwp']))
-                        edit_ket = e_col4.text_input("Keterangan", value=str(row['keterangan']) if pd.notna(row['keterangan']) else "")
+                        edit_ket = e_col4.text_input("Keterangan", value=str(row['keterangan']))
                         
                         e_col5, e_col6 = st.columns([2, 1])
                         
@@ -346,6 +385,15 @@ def main_dashboard():
                             
                         edit_pajak = e_col5.selectbox("Klasifikasi Pajak", opsi_pajak_list, index=idx_pajak)
                         edit_manual_rate = e_col6.number_input("Rate PPh (%)", value=manual_rate_val, step=0.1) if edit_pajak == "Input Manual / Lainnya" else 0.0
+                        
+                        # --- EDIT FORM: DOKUMEN TAMBAHAN ---
+                        st.markdown("**📄 Informasi Dokumen Tambahan**")
+                        e_doc1, e_doc2, e_doc3 = st.columns([1, 1, 1])
+                        edit_no_kontrak = e_doc1.text_input("No Kontrak", value=str(row.get('no_kontrak', '')))
+                        edit_tgl_kontrak = e_doc1.date_input("Tgl Kontrak", value=parse_date(row.get('tgl_kontrak', '')))
+                        edit_no_bast = e_doc2.text_input("No BAST", value=str(row.get('no_bast', '')))
+                        edit_tgl_bast = e_doc2.date_input("Tgl BAST", value=parse_date(row.get('tgl_bast', '')))
+                        edit_tgl_kuitansi = e_doc3.date_input("Tgl Kuitansi", value=parse_date(row.get('tgl_kuitansi', '')) or datetime.now().date())
                         
                         col_btn1, col_btn2 = st.columns([1, 4])
                         if col_btn1.form_submit_button("💾 Simpan", type="primary"):
@@ -367,6 +415,12 @@ def main_dashboard():
                                 df_utama.at[idx_utama, 'netto'] = netto_b
                                 df_utama.at[idx_utama, 'keterangan'] = edit_ket
                                 
+                                df_utama.at[idx_utama, 'no_kontrak'] = edit_no_kontrak
+                                df_utama.at[idx_utama, 'tgl_kontrak'] = str(edit_tgl_kontrak) if edit_tgl_kontrak else ""
+                                df_utama.at[idx_utama, 'no_bast'] = edit_no_bast
+                                df_utama.at[idx_utama, 'tgl_bast'] = str(edit_tgl_bast) if edit_tgl_bast else ""
+                                df_utama.at[idx_utama, 'tgl_kuitansi'] = str(edit_tgl_kuitansi) if edit_tgl_kuitansi else ""
+                                
                                 save_data(df_utama)
                                 st.session_state.edit_id = None
                                 st.session_state.show_toast = f"💾 Perubahan pada ID {row['id']} berhasil disimpan!"
@@ -379,23 +433,25 @@ def main_dashboard():
             else:
                 c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 = st.columns([0.5, 1.1, 1.5, 1.6, 0.7, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.6])
                 
-                try: tgl_display = pd.to_datetime(row['tanggal']).strftime("%d/%m/%y")
-                except: tgl_display = str(row['tanggal'])[:10]
+                # Menampilkan Tanggal Kuitansi jika ada, jika tidak fallback ke Tanggal Input
+                tgl_val = row.get('tgl_kuitansi', '')
+                if not tgl_val or str(tgl_val).strip() == "":
+                    tgl_val = row['tanggal']
+                    
+                try: tgl_display = pd.to_datetime(tgl_val).strftime("%d/%m/%y")
+                except: tgl_display = str(tgl_val)[:10]
 
                 c1.write(row['id'])
                 c2.write(tgl_display)
                 c3.write(row['nama_pengadaan'])
                 c4.caption(get_display_pajak(str(row['jenis_pajak']), bool(row['punya_npwp'])))
-                
-                # Mengembalikan lambang ke format app.py (✅ / ❌)
                 c5.write("✅" if bool(row['punya_npwp']) else "❌")
-                
                 c6.write(format_rupiah(row['bruto']))
                 c7.write(format_rupiah(row['dpp']))
                 c8.write(format_rupiah(row['ppn']))
                 c9.write(format_rupiah(row['pph']))
                 c10.write(format_rupiah(row['netto']))
-                c11.caption(str(row['keterangan']) if pd.notna(row['keterangan']) and str(row['keterangan']).strip() else "-")
+                c11.caption(str(row['keterangan']) if str(row['keterangan']).strip() else "-")
                 
                 with c12:
                     if st.session_state.confirm_del_id == row['id']:
@@ -412,7 +468,6 @@ def main_dashboard():
                             st.rerun()
                     else:
                         col_aksi1, col_aksi2 = st.columns(2)
-                        # Tooltip help terintegrasi secara aman dengan CSS perbaikan hover
                         if col_aksi1.button("✏️", key=f"btn_edit_{row['id']}", use_container_width=True, help="Edit Data"):
                             st.session_state.edit_id = row['id']
                             st.session_state.confirm_del_id = None
@@ -422,7 +477,7 @@ def main_dashboard():
                             st.rerun()
                 st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
                 
-        # Fitur Export CSV
+        # Fitur Export CSV (Sudah otomatis menyertakan kolom baru)
         df_download = df_filter.copy()
         df_download['jenis_pajak'] = df_download.apply(lambda r: get_display_pajak(str(r['jenis_pajak']), bool(r['punya_npwp'])), axis=1)
         df_download['punya_npwp'] = df_download['punya_npwp'].map({True: 'Ya', False: 'Tidak'})
