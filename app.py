@@ -23,7 +23,7 @@ if "form_reset_counter" not in st.session_state:
     st.session_state.form_reset_counter = 0
 
 # ==========================================
-# 2. INJEKSI CSS (DESAIN MINIMALIS, ELEGAN & PERBAIKAN HOVERING)
+# 2. INJEKSI CSS (DESAIN MINIMALIS, ELEGAN & PERBAIKAN)
 # ==========================================
 st.markdown("""
     <style>
@@ -31,6 +31,26 @@ st.markdown("""
     .stApp { background-color: #f8fafc; }
     .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 96%; }
     
+    /* --------------------------------------------------------------------- */
+    /* PERBAIKAN TOAST NOTIFICATION (KOTAK PESAN) AGAR LEBAR & MULTILINE     */
+    /* --------------------------------------------------------------------- */
+    div[data-testid="stToast"] {
+        min-width: 350px !important;
+        width: max-content !important;
+        max-width: 500px !important;
+        padding: 16px !important;
+        z-index: 999999 !important;
+    }
+    div[data-testid="stToast"] span, 
+    div[data-testid="stToast"] p,
+    div[data-testid="stToast"] div {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        overflow: visible !important;
+        line-height: 1.4 !important;
+    }
+    /* --------------------------------------------------------------------- */
+
     /* --------------------------------------------------------------------- */
     /* SOLUSI HOVERING TEXT TERPOTONG (AGRESIF KE SEMUA PARENT CONTAINER)    */
     /* --------------------------------------------------------------------- */
@@ -100,7 +120,6 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 SHEET_NAME = "Sheet1"
 
-# Menambahkan 5 Kolom Baru ke dalam Struktur Database
 COLS = [
     "id", "tahun_anggaran", "tanggal", "nama_pengadaan", "jenis_pajak", "punya_npwp", 
     "bruto", "dpp", "ppn", "pph", "netto", "keterangan",
@@ -108,27 +127,21 @@ COLS = [
 ]
 
 def get_data():
-    """Mengambil data dari Google Sheets dengan sinkronisasi tipe data murni"""
     try:
-        # Membaca seluruh sheet tanpa batasan usecols kaku, agar kolom baru otomatis terbaca jika sheet diupdate
         df = conn.read(worksheet=SHEET_NAME, ttl=0)
         df = df.dropna(how="all")
         
         if df.empty or len(df.columns) == 0:
             return pd.DataFrame(columns=COLS)
             
-        # Memastikan semua kolom standar tersedia di dataframe
         for col in COLS:
             if col not in df.columns:
                 df[col] = ""
                 
-        # Urutkan dan filter sesuai COLS
         df = df[COLS]
-        
         df['id'] = pd.to_numeric(df['id'], errors='coerce').fillna(0).astype(int)
         df['tahun_anggaran'] = pd.to_numeric(df['tahun_anggaran'], errors='coerce').fillna(2026).astype(int)
         
-        # Penyesuaian Boolean
         df['punya_npwp'] = df['punya_npwp'].map({
             True: True, False: False, 'TRUE': True, 'FALSE': False,
             'True': True, 'False': False, '1': True, '0': False,
@@ -138,7 +151,6 @@ def get_data():
         for col in ['bruto', 'dpp', 'ppn', 'pph', 'netto']:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
             
-        # FIX ERROR TYPE DATA KOSONG
         kolom_teks = ['nama_pengadaan', 'jenis_pajak', 'keterangan', 'no_kontrak', 'tgl_kontrak', 'no_bast', 'tgl_bast', 'tgl_kuitansi']
         for col in kolom_teks:
             df[col] = df[col].astype(str).replace('nan', '').replace('None', '')
@@ -148,18 +160,20 @@ def get_data():
         return pd.DataFrame(columns=COLS)
 
 def save_data(df):
-    """Menyimpan data kembali ke Google Sheets"""
     conn.update(worksheet=SHEET_NAME, data=df)
     st.cache_data.clear()
 
 def parse_date(date_str):
-    """Helper untuk parsing string tanggal ke objek date"""
     try:
         if pd.isna(date_str) or not date_str or str(date_str).strip() == "":
             return None
         return datetime.strptime(str(date_str).strip()[:10], "%Y-%m-%d").date()
     except:
         return None
+
+def singkatin_teks(teks, maks_karakter=75):
+    """Fungsi pembantu untuk membatasi panjang teks pada notifikasi toast"""
+    return teks if len(teks) <= maks_karakter else f"{teks[:maks_karakter]}..."
 
 # ==========================================
 # 4. ENGINE PERHITUNGAN PAJAK
@@ -349,7 +363,9 @@ def main_dashboard():
             df_update = pd.concat([df_utama, data_baru], ignore_index=True)
             save_data(df_update)
             
-            st.session_state.show_toast = f"✅ Berhasil menambahkan: {nama_pengadaan}"
+            # FORMAT TOAST BARU: Dibatasi dengan singkatin_teks jika terlalu panjang dan di-support oleh CSS baru
+            nama_rapi = singkatin_teks(nama_pengadaan)
+            st.session_state.show_toast = f"✅ Berhasil menambahkan:\n{nama_rapi}"
             st.session_state.form_reset_counter += 1
             st.rerun()
 
@@ -451,7 +467,6 @@ def main_dashboard():
             else:
                 c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 = st.columns([0.5, 1.1, 1.5, 1.6, 0.7, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.6])
                 
-                # Menampilkan Tanggal Kuitansi jika ada, jika tidak fallback ke Tanggal Input
                 tgl_val = row.get('tgl_kuitansi', '')
                 if not tgl_val or str(tgl_val).strip() == "":
                     tgl_val = row['tanggal']
@@ -495,7 +510,7 @@ def main_dashboard():
                             st.rerun()
                 st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
                 
-        # Fitur Export CSV (Sudah otomatis menyertakan kolom baru)
+        # Fitur Export CSV
         df_download = df_filter.copy()
         df_download['jenis_pajak'] = df_download.apply(lambda r: get_display_pajak(str(r['jenis_pajak']), bool(r['punya_npwp'])), axis=1)
         df_download['punya_npwp'] = df_download['punya_npwp'].map({True: 'Ya', False: 'Tidak'})
