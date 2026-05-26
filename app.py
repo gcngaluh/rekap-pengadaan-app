@@ -29,7 +29,7 @@ st.markdown("""
     <style>
     /* Latar belakang aplikasi yang bersih */
     .stApp { background-color: #f8fafc; }
-    .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 96%; }
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 98%; }
     
     /* --------------------------------------------------------------------- */
     /* PERBAIKAN TOAST NOTIFICATION (KOTAK PESAN) AGAR LEBAR & MULTILINE     */
@@ -389,9 +389,10 @@ def main_dashboard():
     # --- VIEW & INLINE EDIT TABLE ---
     st.subheader("📑 Tabel Rekapitulasi & Edit Data")
     if not df_filter.empty:
-        h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12 = st.columns([0.5, 1.1, 1.5, 1.6, 0.7, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.6])
-        header_labels = ["ID", "Tgl Kuitansi", "Nama", "Pajak", "NPWP", "Bruto", "DPP", "PPN", "PPh", "Netto", "Ket", "Aksi"]
-        for col, label in zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12], header_labels):
+        # Penambahan Header Kolom Untuk Kontrak & BAST
+        h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14 = st.columns([0.4, 0.9, 1.4, 1.1, 1.1, 1.4, 0.6, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 1.3])
+        header_labels = ["ID", "Tgl Kuitansi", "Nama", "Kontrak", "BAST", "Pajak", "NPWP", "Bruto", "DPP", "PPN", "PPh", "Netto", "Ket", "Aksi"]
+        for col, label in zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14], header_labels):
             col.markdown(f"**{label}**")
         st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 2px solid #ccc;'>", unsafe_allow_html=True)
 
@@ -465,7 +466,8 @@ def main_dashboard():
                             st.rerun()
                 st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid #ddd;'>", unsafe_allow_html=True)
             else:
-                c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 = st.columns([0.5, 1.1, 1.5, 1.6, 0.7, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.6])
+                # Kolom penampil telah di sesuaikan proporsi rasio agar menampilkan Kontrak & BAST
+                c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 = st.columns([0.4, 0.9, 1.4, 1.1, 1.1, 1.4, 0.6, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 1.3])
                 
                 tgl_val = row.get('tgl_kuitansi', '')
                 if not tgl_val or str(tgl_val).strip() == "":
@@ -477,16 +479,35 @@ def main_dashboard():
                 c1.write(row['id'])
                 c2.write(tgl_display)
                 c3.write(row['nama_pengadaan'])
-                c4.caption(get_display_pajak(str(row['jenis_pajak']), bool(row['punya_npwp'])))
-                c5.write("✅" if bool(row['punya_npwp']) else "❌")
-                c6.write(format_rupiah(row['bruto']))
-                c7.write(format_rupiah(row['dpp']))
-                c8.write(format_rupiah(row['ppn']))
-                c9.write(format_rupiah(row['pph']))
-                c10.write(format_rupiah(row['netto']))
-                c11.caption(str(row['keterangan']) if str(row['keterangan']).strip() else "-")
                 
-                with c12:
+                # --- Format Tampilan Kolom Baru (Kontrak) ---
+                no_k = str(row.get('no_kontrak', '')).strip()
+                tgl_k = str(row.get('tgl_kontrak', '')).strip()
+                try: 
+                    tgl_k_disp = pd.to_datetime(tgl_k).strftime("%d/%m/%y") if tgl_k else ""
+                except: tgl_k_disp = tgl_k
+                txt_kontrak = f"{no_k}" + (f" ({tgl_k_disp})" if tgl_k_disp else "")
+                c4.caption(txt_kontrak if txt_kontrak.strip() else "-")
+                
+                # --- Format Tampilan Kolom Baru (BAST) ---
+                no_b = str(row.get('no_bast', '')).strip()
+                tgl_b = str(row.get('tgl_bast', '')).strip()
+                try: 
+                    tgl_b_disp = pd.to_datetime(tgl_b).strftime("%d/%m/%y") if tgl_b else ""
+                except: tgl_b_disp = tgl_b
+                txt_bast = f"{no_b}" + (f" ({tgl_b_disp})" if tgl_b_disp else "")
+                c5.caption(txt_bast if txt_bast.strip() else "-")
+
+                c6.caption(get_display_pajak(str(row['jenis_pajak']), bool(row['punya_npwp'])))
+                c7.write("✅" if bool(row['punya_npwp']) else "❌")
+                c8.write(format_rupiah(row['bruto']))
+                c9.write(format_rupiah(row['dpp']))
+                c10.write(format_rupiah(row['ppn']))
+                c11.write(format_rupiah(row['pph']))
+                c12.write(format_rupiah(row['netto']))
+                c13.caption(str(row['keterangan']) if str(row['keterangan']).strip() else "-")
+                
+                with c14:
                     if st.session_state.confirm_del_id == row['id']:
                         st.caption("Yakin Hapus?")
                         cyes, cno = st.columns(2)
