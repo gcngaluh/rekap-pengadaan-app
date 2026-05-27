@@ -5,6 +5,38 @@ import re
 from streamlit_gsheets import GSheetsConnection
 import streamlit.components.v1 as components  # <--- MODUL TAMBAHAN UNTUK INJEKSI
 
+import streamlit as st
+import pandas as pd
+from datetime import datetime, date
+import re
+from streamlit_gsheets import GSheetsConnection
+
+# ----------------- TAMBAHKAN DARI SINI -----------------
+import pathlib
+from bs4 import BeautifulSoup
+
+def inject_google_verification():
+    try:
+        # Mencari lokasi file index.html bawaan Streamlit di server/cloud
+        index_path = pathlib.Path(st.__file__).parent / "static" / "index.html"
+        html_content = index_path.read_text(encoding="utf-8")
+        
+        soup = BeautifulSoup(html_content, "html.parser")
+        
+        # Mengecek apakah tag sudah ada agar tidak ditambahkan berkali-kali
+        if not soup.find("meta", {"name": "google-site-verification"}):
+            # Membuat tag baru dengan kode unik dari Anda
+            meta_tag = soup.new_tag("meta", name="google-site-verification", content="fFqVc0Wnb7VnRAEsJqMmMZJSJntLgJVkMmLU9K59uYQ")
+            
+            # Memasukkannya secara paksa ke dalam <head>
+            if soup.head:
+                soup.head.append(meta_tag)
+                index_path.write_text(str(soup), encoding="utf-8")
+    except Exception as e:
+        pass # Abaikan jika environment cloud menolak modifikasi file
+
+inject_google_verification()
+
 # ==========================================
 # 1. KONFIGURASI HALAMAN & STATE
 # ==========================================
