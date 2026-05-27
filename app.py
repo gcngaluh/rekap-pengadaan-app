@@ -29,7 +29,8 @@ st.markdown("""
     <style>
     /* Latar belakang aplikasi yang bersih - Menggunakan variabel Streamlit agar responsif Dark/Light Mode */
     .stApp { background-color: var(--background-color); }
-    .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 98%; }
+    /* Memaksimalkan lebar kontainer ke 100% dan mengurangi padding samping agar tabel lebih lega */
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; padding-left: 1rem; padding-right: 1rem; max-width: 100%; }
     
     /* --------------------------------------------------------------------- */
     /* PERBAIKAN TOAST NOTIFICATION (KOTAK PESAN) AGAR LEBAR & MULTILINE     */
@@ -391,8 +392,8 @@ def main_dashboard():
     # --- VIEW & INLINE EDIT TABLE ---
     st.subheader("📑 Tabel Rekapitulasi & Edit Data")
     if not df_filter.empty:
-        # Penambahan Header Kolom Untuk Kontrak & BAST
-        h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14 = st.columns([0.4, 0.9, 1.4, 1.1, 1.1, 1.4, 0.6, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 1.3])
+        # Penyesuaian Header Kolom: Memberikan bobot "1.4" pada angka (Bruto, DPP, dll) agar lebih lebar & proporsional
+        h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14 = st.columns([0.3, 0.8, 1.5, 0.9, 0.9, 1.3, 0.5, 1.4, 1.4, 1.4, 1.4, 1.4, 0.9, 1.2])
         header_labels = ["ID", "Tgl Kuitansi", "Nama", "Kontrak", "BAST", "Pajak", "NPWP", "Bruto", "DPP", "PPN", "PPh", "Netto", "Ket", "Aksi"]
         for col, label in zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14], header_labels):
             col.markdown(f"**{label}**")
@@ -468,8 +469,8 @@ def main_dashboard():
                             st.rerun()
                 st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid var(--border-color);'>", unsafe_allow_html=True)
             else:
-                # Kolom penampil telah di sesuaikan proporsi rasio agar menampilkan Kontrak & BAST
-                c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 = st.columns([0.4, 0.9, 1.4, 1.1, 1.1, 1.4, 0.6, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 1.3])
+                # Kolom penampil: Disesuaikan dengan rasio baru di atas
+                c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 = st.columns([0.3, 0.8, 1.5, 0.9, 0.9, 1.3, 0.5, 1.4, 1.4, 1.4, 1.4, 1.4, 0.9, 1.2])
                 
                 tgl_val = row.get('tgl_kuitansi', '')
                 if not tgl_val or str(tgl_val).strip() == "":
