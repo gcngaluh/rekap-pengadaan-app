@@ -3,6 +3,24 @@ import pandas as pd
 from datetime import datetime, date
 import re
 from streamlit_gsheets import GSheetsConnection
+import streamlit.components.v1 as components
+
+# Tempatkan ini di bagian paling atas skrip app.py Anda
+components.html(
+    """
+    <script>
+        var parentDoc = window.parent.document;
+        if (!parentDoc.querySelector('meta[name="google-site-verification"]')) {
+            var meta = parentDoc.createElement('meta');
+            meta.name = "google-site-verification";
+            meta.content = "google416cd0acd62ab9bf.html";
+            parentDoc.head.appendChild(meta);
+        }
+    </script>
+    """,
+    height=0,
+    width=0
+)
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN & STATE
