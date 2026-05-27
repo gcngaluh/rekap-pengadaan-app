@@ -3,65 +3,11 @@ import pandas as pd
 from datetime import datetime, date
 import re
 from streamlit_gsheets import GSheetsConnection
-import streamlit.components.v1 as components  # <--- MODUL TAMBAHAN UNTUK INJEKSI
-
-import streamlit as st
-import pandas as pd
-from datetime import datetime, date
-import re
-from streamlit_gsheets import GSheetsConnection
-
-# ----------------- TAMBAHKAN DARI SINI -----------------
-import pathlib
-from bs4 import BeautifulSoup
-
-def inject_google_verification():
-    try:
-        # Mencari lokasi file index.html bawaan Streamlit di server/cloud
-        index_path = pathlib.Path(st.__file__).parent / "static" / "index.html"
-        html_content = index_path.read_text(encoding="utf-8")
-        
-        soup = BeautifulSoup(html_content, "html.parser")
-        
-        # Mengecek apakah tag sudah ada agar tidak ditambahkan berkali-kali
-        if not soup.find("meta", {"name": "google-site-verification"}):
-            # Membuat tag baru dengan kode unik dari Anda
-            meta_tag = soup.new_tag("meta", name="google-site-verification", content="fFqVc0Wnb7VnRAEsJqMmMZJSJntLgJVkMmLU9K59uYQ")
-            
-            # Memasukkannya secara paksa ke dalam <head>
-            if soup.head:
-                soup.head.append(meta_tag)
-                index_path.write_text(str(soup), encoding="utf-8")
-    except Exception as e:
-        pass # Abaikan jika environment cloud menolak modifikasi file
-
-inject_google_verification()
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN & STATE
 # ==========================================
 st.set_page_config(page_title="Rekapitulasi Pengadaan", page_icon="📊", layout="wide")
-
-# ---------------------------------------------------------------------
-# TRICK COBA TEMBUS GOOGLE VERIFICATION VIA INJEKSI META TAG KE DOM INDUK
-# ---------------------------------------------------------------------
-components.html(
-    """
-    <script>
-        var parentDoc = window.parent.document;
-        if (!parentDoc.querySelector('meta[name="google-site-verification"]')) {
-            var meta = parentDoc.createElement('meta');
-            meta.name = "google-site-verification";
-            // JIKA KODE TOKEN DI METODE "HTML TAG" BERBEDA, GANTI DI BAWAH INI:
-            meta.content = "google416cd0acd62ab9bf"; 
-            parentDoc.head.appendChild(meta);
-        }
-    </script>
-    """,
-    height=0,
-    width=0
-)
-# ---------------------------------------------------------------------
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -85,7 +31,9 @@ st.markdown("""
     .stApp { background-color: #f8fafc; }
     .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 98%; }
     
+    /* --------------------------------------------------------------------- */
     /* PERBAIKAN TOAST NOTIFICATION (KOTAK PESAN) AGAR LEBAR & MULTILINE     */
+    /* --------------------------------------------------------------------- */
     div[data-testid="stToast"] {
         min-width: 350px !important;
         width: max-content !important;
@@ -101,8 +49,11 @@ st.markdown("""
         overflow: visible !important;
         line-height: 1.4 !important;
     }
+    /* --------------------------------------------------------------------- */
 
+    /* --------------------------------------------------------------------- */
     /* SOLUSI HOVERING TEXT TERPOTONG (AGRESIF KE SEMUA PARENT CONTAINER)    */
+    /* --------------------------------------------------------------------- */
     div[data-testid="stHorizontalBlock"],
     div[data-testid="stVerticalBlock"],
     div[data-testid="stVerticalBlockBorderWrapper"],
@@ -137,6 +88,7 @@ st.markdown("""
         text-align: center !important;
         font-size: 0.85rem !important;
     }
+    /* --------------------------------------------------------------------- */
     
     /* Styling Card/Wadah Kontainer Kontrol */
     div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -220,6 +172,7 @@ def parse_date(date_str):
         return None
 
 def singkatin_teks(teks, maks_karakter=75):
+    """Fungsi pembantu untuk membatasi panjang teks pada notifikasi toast"""
     return teks if len(teks) <= maks_karakter else f"{teks[:maks_karakter]}..."
 
 # ==========================================
@@ -241,9 +194,12 @@ def format_indo_csv(val):
     return s
 
 def get_display_pajak(pajak_str, punya_npwp):
-    if "1.5% / 3%" in pajak_str: return pajak_str.replace("1.5% / 3%", "1.5%" if punya_npwp else "3%")
-    if "2% / 4%" in pajak_str: return pajak_str.replace("2% / 4%", "2%" if punya_npwp else "4%")
+    if "1.5% / 3%" in pajak_str: return pajak_str.replace("1.5% / 3%", "1.5%" if pph_rate_is_npwp(pajak_str, punya_npwp) else "3%")
+    if "2% / 4%" in pajak_str: return pajak_str.replace("2% / 4%", "2%" if pph_rate_is_npwp(pajak_str, punya_npwp) else "4%")
     return pajak_str
+
+def pph_rate_is_npwp(pajak_str, punya_npwp):
+    return punya_npwp
 
 def hitung_pajak(bruto, kategori_pajak, punya_npwp, manual_rate=0.0):
     ppn_rate = 0.11
@@ -268,7 +224,7 @@ def hitung_pajak(bruto, kategori_pajak, punya_npwp, manual_rate=0.0):
         pph_rate = 0.0265
     elif "3.50%" in kategori_pajak:
         kat_engine = "Konstruksi"
-        pph_rate = 0.0175 if "1.75%" in kategori_pajak else 0.0350
+        pph_rate = 0.0350
     elif "4.00%" in kategori_pajak:
         kat_engine = "Konstruksi"
         pph_rate = 0.0400
@@ -407,6 +363,7 @@ def main_dashboard():
             df_update = pd.concat([df_utama, data_baru], ignore_index=True)
             save_data(df_update)
             
+            # FORMAT TOAST BARU: Dibatasi dengan singkatin_teks jika terlalu panjang dan di-support oleh CSS baru
             nama_rapi = singkatin_teks(nama_pengadaan)
             st.session_state.show_toast = f"✅ Berhasil menambahkan:\n{nama_rapi}"
             st.session_state.form_reset_counter += 1
@@ -432,6 +389,7 @@ def main_dashboard():
     # --- VIEW & INLINE EDIT TABLE ---
     st.subheader("📑 Tabel Rekapitulasi & Edit Data")
     if not df_filter.empty:
+        # Penambahan Header Kolom Untuk Kontrak & BAST
         h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14 = st.columns([0.4, 0.9, 1.4, 1.1, 1.1, 1.4, 0.6, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 1.3])
         header_labels = ["ID", "Tgl Kuitansi", "Nama", "Kontrak", "BAST", "Pajak", "NPWP", "Bruto", "DPP", "PPN", "PPh", "Netto", "Ket", "Aksi"]
         for col, label in zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14], header_labels):
@@ -463,6 +421,7 @@ def main_dashboard():
                         edit_pajak = e_col5.selectbox("Klasifikasi Pajak", opsi_pajak_list, index=idx_pajak)
                         edit_manual_rate = e_col6.number_input("Rate PPh (%)", value=manual_rate_val, step=0.1) if edit_pajak == "Input Manual / Lainnya" else 0.0
                         
+                        # --- EDIT FORM: DOKUMEN TAMBAHAN ---
                         st.markdown("**📄 Informasi Dokumen Tambahan**")
                         e_doc1, e_doc2, e_doc3 = st.columns([1, 1, 1])
                         edit_no_kontrak = e_doc1.text_input("No Kontrak", value=str(row.get('no_kontrak', '')))
@@ -507,6 +466,7 @@ def main_dashboard():
                             st.rerun()
                 st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid #ddd;'>", unsafe_allow_html=True)
             else:
+                # Kolom penampil telah di sesuaikan proporsi rasio agar menampilkan Kontrak & BAST
                 c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 = st.columns([0.4, 0.9, 1.4, 1.1, 1.1, 1.4, 0.6, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 1.3])
                 
                 tgl_val = row.get('tgl_kuitansi', '')
@@ -520,6 +480,7 @@ def main_dashboard():
                 c2.write(tgl_display)
                 c3.write(row['nama_pengadaan'])
                 
+                # --- Format Tampilan Kolom Baru (Kontrak) ---
                 no_k = str(row.get('no_kontrak', '')).strip()
                 tgl_k = str(row.get('tgl_kontrak', '')).strip()
                 try: 
@@ -528,6 +489,7 @@ def main_dashboard():
                 txt_kontrak = f"{no_k}" + (f" ({tgl_k_disp})" if tgl_k_disp else "")
                 c4.caption(txt_kontrak if txt_kontrak.strip() else "-")
                 
+                # --- Format Tampilan Kolom Baru (BAST) ---
                 no_b = str(row.get('no_bast', '')).strip()
                 tgl_b = str(row.get('tgl_bast', '')).strip()
                 try: 
@@ -569,6 +531,7 @@ def main_dashboard():
                             st.rerun()
                 st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
                 
+        # Fitur Export CSV
         df_download = df_filter.copy()
         df_download['jenis_pajak'] = df_download.apply(lambda r: get_display_pajak(str(r['jenis_pajak']), bool(r['punya_npwp'])), axis=1)
         df_download['punya_npwp'] = df_download['punya_npwp'].map({True: 'Ya', False: 'Tidak'})
