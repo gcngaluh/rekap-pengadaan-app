@@ -27,8 +27,8 @@ if "form_reset_counter" not in st.session_state:
 # ==========================================
 st.markdown("""
     <style>
-    /* Latar belakang aplikasi yang bersih */
-    .stApp { background-color: #f8fafc; }
+    /* Latar belakang aplikasi yang bersih - Menggunakan variabel Streamlit agar responsif Dark/Light Mode */
+    .stApp { background-color: var(--background-color); }
     .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 98%; }
     
     /* --------------------------------------------------------------------- */
@@ -79,8 +79,8 @@ st.markdown("""
         white-space: normal !important; 
         word-wrap: break-word !important;
         overflow: visible !important;
-        background-color: #1e293b !important;
-        color: #f8fafc !important;
+        background-color: var(--text-color) !important;
+        color: var(--background-color) !important;
         border-radius: 6px !important;
         padding: 6px 12px !important;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
@@ -93,20 +93,22 @@ st.markdown("""
     /* Styling Card/Wadah Kontainer Kontrol */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         border-radius: 8px;
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
+        background-color: var(--secondary-background-color);
+        border: 1px solid var(--border-color);
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
         padding: 12px;
+        color: var(--text-color);
     }
     
     /* Modifikasi Indikator Anggaran */
     div[data-testid="metric-container"] {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
+        background-color: var(--secondary-background-color);
+        border: 1px solid var(--border-color);
         padding: 12px 18px;
         border-radius: 6px;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #0f172a;
+        border-left: 4px solid var(--primary-color);
+        color: var(--text-color);
     }
     
     p { margin-bottom: 0.1rem !important; font-size: 0.95rem; }
@@ -266,7 +268,7 @@ def format_angka_ribuan(key):
 # 5. SISTEM LOGIN
 # ==========================================
 def login_screen():
-    st.markdown("<h2 style='text-align: center; color: #0f172a;'>🔐 Login Sistem Rekapitulasi Pengadaan</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: var(--text-color);'>🔐 Login Sistem Rekapitulasi Pengadaan</h2>", unsafe_allow_html=True)
     st.write("---")
     _, col2, _ = st.columns([1, 2, 1])
     with col2:
@@ -394,7 +396,7 @@ def main_dashboard():
         header_labels = ["ID", "Tgl Kuitansi", "Nama", "Kontrak", "BAST", "Pajak", "NPWP", "Bruto", "DPP", "PPN", "PPh", "Netto", "Ket", "Aksi"]
         for col, label in zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14], header_labels):
             col.markdown(f"**{label}**")
-        st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 2px solid #ccc;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 2px solid var(--border-color);'>", unsafe_allow_html=True)
 
         for _, row in df_filter.iterrows():
             if st.session_state.edit_id == row['id']:
@@ -464,7 +466,7 @@ def main_dashboard():
                         if col_btn2.form_submit_button("❌ Batal"):
                             st.session_state.edit_id = None
                             st.rerun()
-                st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid #ddd;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid var(--border-color);'>", unsafe_allow_html=True)
             else:
                 # Kolom penampil telah di sesuaikan proporsi rasio agar menampilkan Kontrak & BAST
                 c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 = st.columns([0.4, 0.9, 1.4, 1.1, 1.1, 1.4, 0.6, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 1.3])
@@ -529,7 +531,7 @@ def main_dashboard():
                         if col_aksi2.button("🗑️", key=f"btn_del_{row['id']}", use_container_width=True, help="Hapus Data"):
                             st.session_state.confirm_del_id = row['id']
                             st.rerun()
-                st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 0.3em 0; border: none; border-top: 1px solid var(--border-color);'>", unsafe_allow_html=True)
                 
         # Fitur Export CSV
         df_download = df_filter.copy()
