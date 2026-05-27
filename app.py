@@ -4,6 +4,20 @@ from datetime import datetime, date
 import re
 from streamlit_gsheets import GSheetsConnection
 
+# Mengakali penambahan meta tag Google Verification ke dalam DOM/Head menggunakan JavaScript
+components.html(
+    """
+    <script>
+        var meta = document.createElement('meta');
+        meta.name = "google-site-verification";
+        meta.content = "fFqVc0Wnb7VnRAEsJqMmMZJSJntLgJVkMmLU9K59uYQ"; // <-- GANTI dengan kode unik Anda dari Google
+        document.getElementsByTagName('head')[0].appendChild(meta);
+    </script>
+    """,
+    height=0,
+    width=0
+)
+
 # ==========================================
 # 1. KONFIGURASI HALAMAN & STATE
 # ==========================================
