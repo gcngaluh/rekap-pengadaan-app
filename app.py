@@ -10,7 +10,7 @@ components.html(
     <script>
         var meta = document.createElement('meta');
         meta.name = "google-site-verification";
-        meta.content = "fFqVc0Wnb7VnRAEsJqMmMZJSJntLgJVkMmLU9K59uYQ"; // <-- GANTI dengan kode unik Anda dari Google
+        <meta name="google-site-verification" content="fFqVc0Wnb7VnRAEsJqMmMZJSJntLgJVkMmLU9K59uYQ" />; // <-- GANTI dengan kode unik Anda dari Google
         document.getElementsByTagName('head')[0].appendChild(meta);
     </script>
     """,
