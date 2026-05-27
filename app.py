@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 from datetime import datetime, date
 import re
@@ -8,6 +9,21 @@ from streamlit_gsheets import GSheetsConnection
 # 1. KONFIGURASI HALAMAN & STATE
 # ==========================================
 st.set_page_config(page_title="Rekapitulasi Pengadaan", page_icon="📊", layout="wide")
+
+# --- INJEKSI KODE VERIFIKASI GOOGLE SEARCH CONSOLE ---
+components.html(
+    """
+    <script>
+        var meta = document.createElement('meta');
+        meta.name = "google-site-verification";
+        meta.content = "fFqVc0Wnb7VnRAEsJqMmMZJSJntLgJVkMmLU9K59uYQ";
+        document.getElementsByTagName('head')[0].appendChild(meta);
+    </script>
+    """,
+    height=0,
+    width=0
+)
+# -----------------------------------------------------
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
